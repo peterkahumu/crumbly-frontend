@@ -1,8 +1,25 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { MessageCircle, X, Send, RotateCw } from "lucide-react";
 
-export default function ChatWidget({ bakeryId }) {
-  const [isOpen, setIsOpen] = useState(false);
+export default function ChatWidget({
+  bakeryId,
+  bakeryName,
+  isOpen: controlledIsOpen,
+  onOpenChange,
+}) {
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  const isControlled = controlledIsOpen !== undefined;
+  const isOpen = isControlled ? controlledIsOpen : internalIsOpen;
+
+  const updateIsOpen = useCallback(
+    (val) => {
+      const nextVal = typeof val === "function" ? val(isOpen) : val;
+      if (onOpenChange) onOpenChange(nextVal);
+      if (!isControlled) setInternalIsOpen(nextVal);
+    },
+    [isOpen, isControlled, onOpenChange]
+  );
+
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [customerToken, setCustomerToken] = useState(null);
@@ -11,8 +28,31 @@ export default function ChatWidget({ bakeryId }) {
   const [isTyping, setIsTyping] = useState(false);
   const [typingUser, setTypingUser] = useState("");
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
   const lastMsgCountRef = useRef(0);
   const typingTimerRef = useRef(null);
+
+  // Listen for custom event to trigger opening chat from anywhere
+  useEffect(() => {
+    const handleOpen = (e) => {
+      if (!e.detail?.bakeryId || e.detail.bakeryId === bakeryId) {
+        updateIsOpen(true);
+        setHasUnread(false);
+      }
+    };
+    window.addEventListener("crumbly:open-chat", handleOpen);
+    return () => window.removeEventListener("crumbly:open-chat", handleOpen);
+  }, [bakeryId, updateIsOpen]);
+
+  // Focus message input when opened
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   // Load existing token from local storage if they already started a chat
   useEffect(() => {
@@ -157,13 +197,13 @@ export default function ChatWidget({ bakeryId }) {
         {isTyping && !isOpen && (
           <div
             onClick={() => {
-              setIsOpen(true);
+              updateIsOpen(true);
               setHasUnread(false);
             }}
             className="mb-2 flex cursor-pointer items-center gap-2 rounded-full border border-emerald-300 bg-white px-3.5 py-1.5 text-xs font-semibold text-cocoa-800 shadow-xl transition-all duration-200 hover:scale-105 animate-bounce select-none"
           >
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
-            <span>{typingUser || "Baker"} is replying</span>
+            <span>{typingUser || bakeryName || "Baker"} is replying</span>
             <span className="flex items-center gap-0.5 pt-0.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.3s]" />
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]" />
@@ -174,10 +214,11 @@ export default function ChatWidget({ bakeryId }) {
 
         <button
           onClick={() => {
-            setIsOpen(!isOpen);
+            updateIsOpen(!isOpen);
             setHasUnread(false);
           }}
-          aria-label="Open chat with bakery"
+          aria-label={bakeryName ? `Message ${bakeryName}` : "Message baker"}
+          title={bakeryName ? `Message ${bakeryName}` : "Message baker"}
           className="relative flex h-14 w-14 items-center justify-center rounded-full bg-terracotta-600 text-white shadow-xl hover:bg-terracotta-700 transition-all hover:scale-105 focus:outline-none focus:ring-4 focus:ring-terracotta-300"
         >
           <MessageCircle size={28} />
@@ -197,11 +238,13 @@ export default function ChatWidget({ bakeryId }) {
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" />
               <div>
-                <h3 className="font-heading font-semibold text-sm leading-tight">Message Baker</h3>
+                <h3 className="font-heading font-semibold text-sm leading-tight">
+                  {bakeryName ? `Message ${bakeryName}` : "Message Baker"}
+                </h3>
                 <p className="text-[10px] text-cream-200 flex items-center gap-1.5">
                   {isTyping ? (
                     <span className="text-emerald-300 font-medium flex items-center gap-1">
-                      <span>{typingUser || "Baker"} is typing</span>
+                      <span>{typingUser || bakeryName || "Baker"} is typing</span>
                       <span className="flex items-center gap-0.5">
                         <span className="h-1 w-1 rounded-full bg-emerald-300 animate-bounce [animation-delay:-0.3s]" />
                         <span className="h-1 w-1 rounded-full bg-emerald-300 animate-bounce [animation-delay:-0.15s]" />
@@ -209,7 +252,7 @@ export default function ChatWidget({ bakeryId }) {
                       </span>
                     </span>
                   ) : (
-                    "Live real-time messaging"
+                    "Direct message with baker"
                   )}
                 </p>
               </div>
@@ -224,7 +267,7 @@ export default function ChatWidget({ bakeryId }) {
                 <RotateCw size={15} />
               </button>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={() => updateIsOpen(false)}
                 className="rounded-full p-1.5 text-cream-100 hover:bg-white/10 hover:text-white transition-colors"
                 aria-label="Close chat"
               >
@@ -237,8 +280,8 @@ export default function ChatWidget({ bakeryId }) {
           <div className="flex-1 overflow-y-auto p-4 bg-cream-50/70 flex flex-col gap-3">
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center p-6 text-cocoa-400">
-                <p className="text-sm font-medium">Send a message to start a conversation.</p>
-                <p className="text-xs text-cocoa-400 mt-1">Replies from the baker will appear here instantly in real time.</p>
+                <p className="text-sm font-medium">Send a message to {bakeryName || "the baker"}.</p>
+                <p className="text-xs text-cocoa-400 mt-1">Direct questions or custom requests will be answered here in real time.</p>
               </div>
             ) : (
               messages.map((msg) => {
@@ -294,10 +337,11 @@ export default function ChatWidget({ bakeryId }) {
           {/* Input form */}
           <form onSubmit={sendMessage} className="p-3 bg-white border-t border-cream-200 flex gap-2">
             <input
+              ref={inputRef}
               type="text"
               value={newMessage}
               onChange={handleInputChange}
-              placeholder="Type your message..."
+              placeholder={`Type your message to ${bakeryName || "the baker"}...`}
               className="flex-1 rounded-full border border-cream-200 bg-cream-50 px-4 py-2 text-sm text-cocoa-900 focus:border-terracotta-500 focus:bg-white focus:outline-none transition-colors"
               disabled={isLoading}
             />

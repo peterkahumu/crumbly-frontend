@@ -1,5 +1,6 @@
+import { useState } from "react";
 import Image from "next/image";
-import { MapPin, Images } from "lucide-react";
+import { MapPin, Images, MessageCircle } from "lucide-react";
 import PublicLayout from "@/components/layout/PublicLayout";
 import CategoryFilterBar from "@/components/cakes/CategoryFilterBar";
 import CakeCard from "@/components/cakes/CakeCard";
@@ -11,6 +12,7 @@ import { buildWhatsAppLink } from "@/lib/whatsapp";
 import ChatWidget from "@/components/messaging/ChatWidget";
 
 export default function BakeryStorefront({ bakery, categories, cakes, filters }) {
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const whatsappLink = buildWhatsAppLink(
     bakery.whatsappNumber,
     `Hi ${bakery.name}! I found your bakery on Crumbly and I'd like to ask about your cakes.`
@@ -68,6 +70,14 @@ export default function BakeryStorefront({ bakery, categories, cakes, filters })
               <Button href={`/bakery/${bakery.slug}/portfolio`} variant="outline" size="md" className="flex-1 sm:flex-none">
                 <Images size={16} /> View Portfolio
               </Button>
+              <Button
+                onClick={() => setIsChatOpen((prev) => !prev)}
+                variant="outline"
+                size="md"
+                className="flex-1 sm:flex-none border-terracotta-500 text-terracotta-600 hover:bg-terracotta-50"
+              >
+                <MessageCircle size={16} /> Message Baker
+              </Button>
               <Button as="a" href={whatsappLink} target="_blank" rel="noopener noreferrer" variant="primary" size="md" className="flex-1 sm:flex-none shadow-sm">
                 Chat on WhatsApp
               </Button>
@@ -110,7 +120,12 @@ export default function BakeryStorefront({ bakery, categories, cakes, filters })
           )}
         </div>
       </div>
-      <ChatWidget bakeryId={bakery.id} />
+      <ChatWidget
+        bakeryId={bakery.id}
+        bakeryName={bakery.name}
+        isOpen={isChatOpen}
+        onOpenChange={setIsChatOpen}
+      />
     </PublicLayout>
   );
 }

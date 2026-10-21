@@ -127,7 +127,7 @@ export default function CakeDetail({ cake, bakery }) {
           </div>
         </div>
       </div>
-      <ChatWidget bakeryId={bakery.id} />
+      <ChatWidget bakeryId={bakery.id} bakeryName={bakery.name} />
     </PublicLayout>
   );
 }
