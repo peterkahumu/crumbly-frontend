@@ -27,7 +27,7 @@ export default function MobileBottomNav() {
   const isAdminRoute = router.pathname.startsWith("/admin");
   const isBakerRoute = router.pathname.startsWith("/baker");
 
-  // Fetch unread messages count for authenticated bakers and admins
+  // Fetch unread messages count on navigation for authenticated bakers and admins (no polling)
   useEffect(() => {
     if (!role || (role !== "BAKER" && role !== "SUPER_ADMIN")) return;
 
@@ -43,15 +43,13 @@ export default function MobileBottomNav() {
           }
         }
       } catch {
-        // Background sync error
+        // Quiet failure
       }
     };
 
     fetchUnread();
-    const interval = setInterval(fetchUnread, 8000);
     return () => {
       isMounted = false;
-      clearInterval(interval);
     };
   }, [role, router.pathname]);
 

@@ -16,6 +16,7 @@ import {
   Plus,
   X,
   Filter,
+  RotateCw,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -83,45 +84,13 @@ export default function AdminMessages({ bakeries = [] }) {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Real-time live polling:
-  // 1. Poll conversations every 4 seconds
-  // 2. Poll active conversation every 2 seconds
-  useEffect(() => {
-    const convInterval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        fetchConversations();
-      }
-    }, 4000);
-
-    const msgInterval = setInterval(() => {
-      if (
-        activeConvIdRef.current &&
-        typeof document !== "undefined" &&
-        document.visibilityState === "visible"
-      ) {
-        loadConversation(activeConvIdRef.current, true);
-      }
-    }, 2000);
-
-    function handleFocus() {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        fetchConversations();
-        if (activeConvIdRef.current) {
-          loadConversation(activeConvIdRef.current, true);
-        }
-      }
+  // Manual refresh handler
+  const handleRefresh = async () => {
+    await fetchConversations();
+    if (activeConvIdRef.current) {
+      await loadConversation(activeConvIdRef.current, true);
     }
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-
-    return () => {
-      clearInterval(convInterval);
-      clearInterval(msgInterval);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
-  }, [fetchConversations, loadConversation]);
+  };
 
   // Auto-scroll on messages update
   useEffect(() => {
@@ -272,9 +241,14 @@ export default function AdminMessages({ bakeries = [] }) {
               <span className="text-xs font-bold uppercase tracking-wider text-cocoa-700">
                 All Threads ({filteredConversations.length})
               </span>
-              <span className="flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
-              </span>
+              <button
+                onClick={handleRefresh}
+                title="Refresh messages"
+                className="p-1 rounded-lg text-cocoa-500 hover:text-cocoa-800 hover:bg-cream-200/60 transition-colors"
+                aria-label="Refresh inbox"
+              >
+                <RotateCw size={13} />
+              </button>
             </div>
 
             <div className="flex-1 overflow-y-auto">
@@ -364,9 +338,13 @@ export default function AdminMessages({ bakeries = [] }) {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1 text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full font-medium">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live
-                    </span>
+                    <button
+                      onClick={handleRefresh}
+                      title="Refresh thread"
+                      className="flex items-center gap-1 text-xs text-cocoa-600 bg-cream-100 hover:bg-cream-200/80 border border-cream-200 px-2.5 py-1 rounded-full font-medium transition-colors"
+                    >
+                      <RotateCw size={12} /> Refresh
+                    </button>
                     <Badge tone="brand">Admin Mode</Badge>
                   </div>
                 </div>

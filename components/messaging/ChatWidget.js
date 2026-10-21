@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { MessageCircle, X, Send } from "lucide-react";
+import { MessageCircle, X, Send, RotateCw } from "lucide-react";
 
 export default function ChatWidget({ bakeryId }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,7 +55,7 @@ export default function ChatWidget({ bakeryId }) {
     }
   }, [customerToken, fetchMessages]);
 
-  // Real-time live polling (2s when chat is open, 5s when closed)
+  // Fetch messages when chat is opened
   useEffect(() => {
     if (!customerToken) return;
 
@@ -63,28 +63,6 @@ export default function ChatWidget({ bakeryId }) {
       setHasUnread(false);
       fetchMessages(customerToken);
     }
-
-    const intervalTime = isOpen ? 2000 : 5000;
-    const interval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        fetchMessages(customerToken);
-      }
-    }, intervalTime);
-
-    function handleFocus() {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        fetchMessages(customerToken);
-      }
-    }
-
-    window.addEventListener("focus", handleFocus);
-    document.addEventListener("visibilitychange", handleFocus);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", handleFocus);
-      document.removeEventListener("visibilitychange", handleFocus);
-    };
   }, [customerToken, isOpen, fetchMessages]);
 
   const startConversation = async () => {
@@ -236,13 +214,23 @@ export default function ChatWidget({ bakeryId }) {
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="rounded-full p-1 text-cream-100 hover:bg-white/10 hover:text-white transition-colors"
-              aria-label="Close chat"
-            >
-              <X size={18} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => customerToken && fetchMessages(customerToken)}
+                className="rounded-full p-1.5 text-cream-100 hover:bg-white/10 hover:text-white transition-colors"
+                aria-label="Refresh messages"
+                title="Refresh messages"
+              >
+                <RotateCw size={15} />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="rounded-full p-1.5 text-cream-100 hover:bg-white/10 hover:text-white transition-colors"
+                aria-label="Close chat"
+              >
+                <X size={18} />
+              </button>
+            </div>
           </div>
 
           {/* Messages list */}
