@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import { signOut } from "next-auth/react";
 import { LogOut, ExternalLink, Menu } from "lucide-react";
 import clsx from "clsx";
+import toast from "react-hot-toast";
 import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import MobileDrawer from "@/components/layout/MobileDrawer";
 
@@ -50,9 +51,9 @@ export default function DashboardLayout({ title, navItems, brandLabel, brandHref
                   <button 
                     onClick={() => {
                       navigator.clipboard.writeText(window.location.origin + brandHref);
-                      alert("Storefront URL copied to clipboard!");
+                      toast.success("Storefront URL copied to clipboard!");
                     }}
-                    className="hidden md:inline-block rounded bg-cream-200 px-2 py-1 text-[10px] font-medium text-cocoa-600 hover:bg-cream-300"
+                    className="hidden md:inline-block rounded bg-cream-200 px-2 py-1 text-[10px] font-medium text-cocoa-600 hover:bg-cream-300 transition-colors"
                   >
                     Share URL
                   </button>

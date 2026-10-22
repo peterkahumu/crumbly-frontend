@@ -439,20 +439,48 @@ export async function getServerSideProps(ctx) {
 
   try {
     const authHeaders = { Authorization: `Bearer ${guard.session.accessToken}` };
-    const bakery = await backendFetch("/api/bakeries/me", { headers: authHeaders });
-    if (!bakery) return { redirect: { destination: "/auth/login", permanent: false } };
-
     const qs = new URLSearchParams();
     if (ctx.query.range) qs.set("range", String(ctx.query.range));
     if (ctx.query.from) qs.set("from", String(ctx.query.from));
     if (ctx.query.to) qs.set("to", String(ctx.query.to));
 
-    const analytics = await backendFetch(`/api/analytics/baker?${qs.toString()}`, { headers: authHeaders });
+    // Fetch bakery details and analytics stats concurrently without waiting on each other
+    const [bakeryRes, analyticsRes] = await Promise.allSettled([
+      backendFetch("/api/bakeries/me", { headers: authHeaders }),
+      backendFetch(`/api/analytics/baker?${qs.toString()}`, { headers: authHeaders }),
+    ]);
+
+    const bakery = bakeryRes.status === "fulfilled" ? bakeryRes.value : null;
+    const analytics = analyticsRes.status === "fulfilled" ? analyticsRes.value : null;
+
+    if (!bakery && !analytics) {
+      return { redirect: { destination: "/auth/login", permanent: false } };
+    }
+
+    const defaultAnalytics = {
+      window: { label: "30 days" },
+      totals: { orders: 0, revenue: 0, cakes: 0, portfolio: 0 },
+      comparison: { revenueDelta: null, ordersDelta: null },
+      trend: { points: [] },
+      topCakes: [],
+      statusBreakdown: [],
+      channelBreakdown: [],
+      portfolioMix: [],
+      ratings: { average: null, total: 0, breakdown: [] },
+      recentOrders: [],
+    };
 
     return {
       props: {
-        bakery: { id: bakery.id, name: bakery.name, slug: bakery.slug, status: bakery.status },
-        a: analytics,
+        bakery: bakery
+          ? { id: bakery.id, name: bakery.name, slug: bakery.slug, status: bakery.status }
+          : {
+              id: guard.session.bakeryId || "",
+              name: guard.session.user?.name || "My Bakery",
+              slug: guard.session.bakerySlug || "",
+              status: guard.session.bakeryStatus || "APPROVED",
+            },
+        a: analytics || defaultAnalytics,
       },
     };
   } catch (err) {

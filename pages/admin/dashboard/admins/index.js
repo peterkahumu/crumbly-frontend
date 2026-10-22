@@ -10,6 +10,7 @@ import {
   Trash2,
   RefreshCw,
   X,
+  Send,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -18,6 +19,7 @@ import StatCard from "@/components/dashboard/StatCard";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import Modal from "@/components/ui/Modal";
 import { backendFetch } from "@/lib/backend";
 import { requireRole } from "@/lib/session";
 
@@ -28,6 +30,12 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
   const [inviteEmail, setInviteEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [invitedResult, setInvitedResult] = useState(null);
+
+  // Confirmation modal states
+  const [resendAdmin, setResendAdmin] = useState(null);
+  const [resending, setResending] = useState(false);
+  const [revokeAdmin, setRevokeAdmin] = useState(null);
+  const [revoking, setRevoking] = useState(false);
 
   const totalAdmins = admins.length;
   const activeAdmins = admins.filter((a) => !a.isPendingInvite).length;
@@ -55,8 +63,12 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
         throw new Error(data.detail || data.message || "Failed to invite administrator");
       }
 
-      toast.success(`Invitation sent to ${inviteEmail}`);
       setInvitedResult(data);
+      if (data.emailSent) {
+        toast.success(`Invitation email sent directly to ${inviteEmail}`);
+      } else {
+        toast.success(`Administrator created for ${inviteEmail}`);
+      }
 
       // Refresh admin list
       const updatedRes = await fetch("/api/admin/admins");
@@ -71,14 +83,16 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
     }
   }
 
-  async function handleResend(admin) {
+  async function handleConfirmResend() {
+    if (!resendAdmin) return;
+    setResending(true);
     try {
       const res = await fetch("/api/admin/admins/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: admin.email,
-          name: admin.name,
+          email: resendAdmin.email,
+          name: resendAdmin.name,
         }),
       });
 
@@ -87,24 +101,30 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
         throw new Error(data.detail || "Failed to resend invitation");
       }
 
-      toast.success(`Invitation re-sent to ${admin.email}`);
+      if (data.emailSent) {
+        toast.success(`Invitation email sent directly to ${resendAdmin.email}'s inbox!`);
+      } else {
+        toast.success(`Invitation refreshed for ${resendAdmin.email}`);
+      }
+      setResendAdmin(null);
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setResending(false);
     }
   }
 
-  async function handleRevoke(admin) {
-    if (admin.id === currentUserId) {
+  async function handleConfirmRevoke() {
+    if (!revokeAdmin) return;
+    if (revokeAdmin.id === currentUserId) {
       toast.error("You cannot revoke your own administrator account.");
+      setRevokeAdmin(null);
       return;
     }
 
-    if (!confirm(`Are you sure you want to revoke administrator access for ${admin.email}?`)) {
-      return;
-    }
-
+    setRevoking(true);
     try {
-      const res = await fetch(`/api/admin/admins/${admin.id}`, {
+      const res = await fetch(`/api/admin/admins/${revokeAdmin.id}`, {
         method: "DELETE",
       });
 
@@ -113,10 +133,13 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
         throw new Error(body.detail || "Failed to revoke administrator");
       }
 
-      setAdmins((prev) => prev.filter((a) => a.id !== admin.id));
-      toast.success(`Revoked access for ${admin.email}`);
+      setAdmins((prev) => prev.filter((a) => a.id !== revokeAdmin.id));
+      toast.success(`Revoked access for ${revokeAdmin.email}`);
+      setRevokeAdmin(null);
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setRevoking(false);
     }
   }
 
@@ -133,7 +156,7 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
           <div>
             <h2 className="text-lg font-semibold text-cocoa-900">Platform Administrators</h2>
             <p className="text-sm text-cocoa-500">
-              Super admins are onboarded via email invitation with secure single-use password setup tokens.
+              Super admins are onboarded via automated email invitations sent directly to their inbox with secure activation tokens.
             </p>
           </div>
           <Button
@@ -207,7 +230,7 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
                         <div className="flex items-center justify-end gap-2">
                           {admin.isPendingInvite && (
                             <button
-                              onClick={() => handleResend(admin)}
+                              onClick={() => setResendAdmin(admin)}
                               title="Resend invitation email"
                               className="inline-flex items-center gap-1 rounded-lg border border-cream-300 px-2.5 py-1 text-xs font-medium text-cocoa-600 hover:bg-cream-100 transition-colors"
                             >
@@ -217,7 +240,7 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
                           )}
                           {admin.id !== currentUserId && (
                             <button
-                              onClick={() => handleRevoke(admin)}
+                              onClick={() => setRevokeAdmin(admin)}
                               title="Revoke administrator access"
                               className="rounded-lg p-1.5 text-cocoa-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                             >
@@ -234,41 +257,76 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
           </div>
         )}
 
-        {/* Invite Modal */}
-        {showInviteModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl border border-cream-300 bg-white p-6 shadow-xl">
-              <div className="flex items-center justify-between border-b border-cream-200 pb-4">
-                <div className="flex items-center gap-2 text-cocoa-900 font-semibold">
-                  <ShieldCheck size={20} className="text-terracotta-600" />
-                  <span>Invite Super Administrator</span>
+        {/* Invite Super Admin Modal */}
+        <Modal
+          isOpen={showInviteModal}
+          onClose={() => {
+            if (!submitting) {
+              setShowInviteModal(false);
+              setInvitedResult(null);
+            }
+          }}
+          tone={invitedResult ? (invitedResult.emailSent ? "success" : "warning") : "brand"}
+          title={
+            invitedResult
+              ? (invitedResult.emailSent ? "Invitation Dispatched to Inbox" : "Administrator Created")
+              : "Invite Super Administrator"
+          }
+          description={
+            invitedResult
+              ? (invitedResult.emailSent
+                  ? `An automated invitation email has been sent directly to ${invitedResult.email}. They will receive it in their inbox to set up their private password.`
+                  : `Administrator account created for ${invitedResult.email}. Automated email sending requires SMTP configuration in your backend environment.`)
+              : "An invitation email will be sent directly to their inbox with a secure, 48-hour password setup link. No manual email or credential sharing is required."
+          }
+          primaryAction={
+            invitedResult
+              ? {
+                  label: "Done",
+                  onClick: () => {
+                    setShowInviteModal(false);
+                    setInvitedResult(null);
+                  },
+                }
+              : undefined
+          }
+        >
+          {invitedResult ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-cream-200 bg-cream-50/70 p-4 text-xs text-cocoa-700 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-cocoa-800">Invitee:</span>
+                  <span className="text-cocoa-900">{invitedResult.name} ({invitedResult.email})</span>
                 </div>
-                <button
-                  onClick={() => setShowInviteModal(false)}
-                  className="rounded-lg p-1 text-cocoa-400 hover:bg-cream-100"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-cocoa-800">Delivery Status:</span>
+                  <span className={invitedResult.emailSent ? "font-semibold text-emerald-700" : "font-semibold text-amber-700"}>
+                    {invitedResult.emailSent ? "Delivered via SMTP to Inbox" : "SMTP Delivery Pending"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-cocoa-800">Token Validity:</span>
+                  <span className="text-cocoa-600">48 hours</span>
+                </div>
               </div>
 
-              {invitedResult ? (
-                <div className="mt-4 space-y-4">
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                    <div className="flex items-center gap-2 font-semibold">
-                      <CheckCircle2 size={18} className="text-emerald-600" />
-                      <span>Invitation Dispatched!</span>
-                    </div>
-                    <p className="mt-1 text-xs text-emerald-700">
-                      An invitation email has been sent to <strong>{invitedResult.email}</strong>.
-                      The administrator can use the link below to set their private password.
+              {invitedResult.emailSent ? (
+                <p className="text-xs text-cocoa-500 leading-relaxed">
+                  The recipient can now check their email inbox (and spam/promotions folder) to complete their setup. You do not need to send them a separate email.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    <p className="font-semibold">SMTP is not configured in backend .env</p>
+                    <p className="mt-0.5 text-[11px] text-amber-700">
+                      Configure <code>SMTP_HOST</code>, <code>SMTP_USER</code>, and <code>SMTP_PASSWORD</code> in your backend environment to deliver emails directly to inboxes.
                     </p>
                   </div>
-
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-cocoa-600">
-                      Direct Password Setup Link (valid for 48 hours):
+                      Manual Fallback Link:
                     </label>
-                    <div className="flex items-center gap-2 rounded-xl border border-cream-300 bg-cream-50 p-2.5">
+                    <div className="flex items-center gap-2 rounded-xl border border-cream-300 bg-cream-50 p-2">
                       <input
                         readOnly
                         value={invitedResult.setupUrl}
@@ -283,67 +341,98 @@ export default function AdminsManagement({ initialAdmins = [], currentUserId }) 
                       </button>
                     </div>
                   </div>
-
-                  <div className="flex justify-end pt-2">
-                    <Button onClick={() => setShowInviteModal(false)}>Done</Button>
-                  </div>
                 </div>
-              ) : (
-                <form onSubmit={handleInvite} className="mt-4 space-y-4">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-cocoa-700">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Sarah Kimani"
-                      value={inviteName}
-                      onChange={(e) => setInviteName(e.target.value)}
-                      className="w-full rounded-xl border border-cream-300 px-3.5 py-2 text-sm outline-none focus:border-terracotta-500 focus:ring-1 focus:ring-terracotta-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-cocoa-700">
-                      Email Address <span className="text-terracotta-600">*</span>
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="admin@crumbly.co.ke"
-                      value={inviteEmail}
-                      onChange={(e) => setInviteEmail(e.target.value)}
-                      className="w-full rounded-xl border border-cream-300 px-3.5 py-2 text-sm outline-none focus:border-terracotta-500 focus:ring-1 focus:ring-terracotta-500"
-                    />
-                  </div>
-
-                  <div className="rounded-xl border border-cream-200 bg-cream-50/80 p-3 text-xs text-cocoa-600">
-                    <p className="font-semibold text-cocoa-800 mb-0.5">Zero-Password Architecture</p>
-                    <p>
-                      Super administrators are invited with an empty/unusable password hash. No password is stored
-                      in platform environment variables or plaintext. The invitee will receive an email link to set
-                      their own secure credentials.
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setShowInviteModal(false)}
-                      disabled={submitting}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit" disabled={submitting}>
-                      {submitting ? "Sending Invitation..." : "Send Invitation"}
-                    </Button>
-                  </div>
-                </form>
               )}
             </div>
-          </div>
-        )}
+          ) : (
+            <form onSubmit={handleInvite} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-cocoa-700">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Sarah Kimani"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  className="w-full rounded-xl border border-cream-300 px-3.5 py-2 text-sm outline-none focus:border-terracotta-500 focus:ring-1 focus:ring-terracotta-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium text-cocoa-700">
+                  Email Address <span className="text-terracotta-600">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  placeholder="admin@crumbly.co.ke"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full rounded-xl border border-cream-300 px-3.5 py-2 text-sm outline-none focus:border-terracotta-500 focus:ring-1 focus:ring-terracotta-500"
+                />
+              </div>
+
+              <div className="rounded-2xl border border-cream-200 bg-cream-50/80 p-3.5 text-xs text-cocoa-600">
+                <p className="font-semibold text-cocoa-800 mb-0.5">Automated Inbox Onboarding</p>
+                <p className="leading-relaxed">
+                  The invited administrator will receive an email in their inbox with a one-time link to create their password. You do not need to share credentials or send a separate email.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-cream-100">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowInviteModal(false)}
+                  disabled={submitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? "Sending to Inbox..." : "Send Invitation to Inbox"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
+
+        {/* Resend Confirmation Modal */}
+        <Modal
+          isOpen={Boolean(resendAdmin)}
+          onClose={() => !resending && setResendAdmin(null)}
+          tone="brand"
+          title="Resend Invitation Email"
+          description={`Are you sure you want to resend the setup invitation to ${resendAdmin?.name} (${resendAdmin?.email})? A fresh invitation email with setup instructions will be sent directly to their inbox.`}
+          primaryAction={{
+            label: resending ? "Sending..." : "Resend Email to Inbox",
+            onClick: handleConfirmResend,
+            loading: resending,
+          }}
+          secondaryAction={{
+            label: "Cancel",
+            onClick: () => setResendAdmin(null),
+          }}
+        />
+
+        {/* Revoke Confirmation Modal */}
+        <Modal
+          isOpen={Boolean(revokeAdmin)}
+          onClose={() => !revoking && setRevokeAdmin(null)}
+          tone="danger"
+          title="Revoke Administrator Access"
+          description={`Are you sure you want to revoke administrator access for ${revokeAdmin?.name} (${revokeAdmin?.email})? They will immediately lose access to all platform administrator features.`}
+          primaryAction={{
+            label: revoking ? "Revoking..." : "Revoke Access",
+            variant: "danger",
+            onClick: handleConfirmRevoke,
+            loading: revoking,
+          }}
+          secondaryAction={{
+            label: "Cancel",
+            onClick: () => setRevokeAdmin(null),
+          }}
+        />
       </div>
     </DashboardLayout>
   );

@@ -7,6 +7,7 @@ import { BAKER_NAV } from "@/pages/baker/dashboard/index";
 import ImageUploader from "@/components/dashboard/ImageUploader";
 import Button from "@/components/ui/Button";
 import EmptyState from "@/components/ui/EmptyState";
+import Modal from "@/components/ui/Modal";
 import { backendFetch } from "@/lib/backend";
 import { requireRole } from "@/lib/session";
 
@@ -45,14 +46,26 @@ export default function PortfolioPage({ items: initialItems }) {
     }
   }
 
-  async function handleDelete(id) {
-    if (!confirm("Remove this photo from your portfolio?")) return;
-    const res = await fetch(`/api/portfolio/${id}`, { method: "DELETE" });
-    if (res.ok) {
-      setItems((it) => it.filter((i) => i.id !== id));
-      toast.success("Removed");
-    } else {
-      toast.error("Could not remove photo");
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirmDelete() {
+    if (!itemToDelete) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/portfolio/${itemToDelete.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setItems((it) => it.filter((i) => i.id !== itemToDelete.id));
+        toast.success("Photo removed from portfolio");
+        setItemToDelete(null);
+      } else {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || body.detail || "Could not remove photo");
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -86,9 +99,10 @@ export default function PortfolioPage({ items: initialItems }) {
             <div key={item.id} className="group relative aspect-square overflow-hidden rounded-xl bg-cream-200">
               <Image src={item.imageUrl} alt={item.caption || ""} fill sizes="200px" className="object-cover" />
               <button
-                onClick={() => handleDelete(item.id)}
-                className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                onClick={() => setItemToDelete(item)}
+                className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-600"
                 aria-label="Delete"
+                title="Remove photo"
               >
                 <Trash2 size={14} />
               </button>
@@ -96,6 +110,26 @@ export default function PortfolioPage({ items: initialItems }) {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={Boolean(itemToDelete)}
+        onClose={() => !deleting && setItemToDelete(null)}
+        tone="danger"
+        title="Remove Photo"
+        description="Are you sure you want to remove this photo from your portfolio? It will no longer be visible on your bakery storefront."
+        primaryAction={{
+          label: deleting ? "Removing..." : "Remove Photo",
+          variant: "danger",
+          onClick: handleConfirmDelete,
+          loading: deleting,
+        }}
+        secondaryAction={{
+          label: "Cancel",
+          onClick: () => setItemToDelete(null),
+          disabled: deleting,
+        }}
+      />
     </DashboardLayout>
   );
 }

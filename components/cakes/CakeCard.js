@@ -10,7 +10,7 @@ export default function CakeCard({ cake, bakerySlug, bakeryName }) {
 
   return (
     <Link
-      href={`/bakery/${bakerySlug}/cakes/${cake.slug}`}
+      href={bakerySlug ? `/bakery/${bakerySlug}/cakes/${cake.slug}` : `/cakes/${cake.slug}`}
       className="group flex flex-col overflow-hidden rounded-2xl border border-cream-300 bg-white transition-shadow hover:shadow-lg"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-cream-200">

@@ -262,7 +262,7 @@ export default function CakesCatalog({ categories, cakes, cities, totalCount, pa
           ) : (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-6">
               {cakes.map((cake) => (
-                <CakeCard key={cake.id} cake={cake} bakerySlug={cake.bakery.slug} bakeryName={cake.bakery.name} />
+                <CakeCard key={cake.id} cake={cake} bakerySlug={cake.bakery?.slug || ""} bakeryName={cake.bakery?.name || ""} />
               ))}
             </div>
           )}

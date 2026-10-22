@@ -162,7 +162,7 @@ export default function Home({
                 {featuredCakes.slice(0, 4).map((cake, i) => (
                   <Link
                     key={cake.id}
-                    href={`/bakery/${cake.bakery.slug}/cakes/${cake.slug}`}
+                    href={cake.bakery?.slug ? `/bakery/${cake.bakery.slug}/cakes/${cake.slug}` : `/cakes/${cake.slug}`}
                     className={`group relative overflow-hidden rounded-3xl border border-cream-200 bg-white shadow-md hover:shadow-xl transition-all duration-300 ${
                       i === 0 ? "sm:translate-y-4" : i === 3 ? "sm:-translate-y-4" : ""
                     }`}
@@ -258,7 +258,7 @@ export default function Home({
         ) : featuredCakes.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-6">
             {featuredCakes.map((cake) => (
-              <CakeCard key={cake.id} cake={cake} bakerySlug={cake.bakery.slug} bakeryName={cake.bakery.name} />
+              <CakeCard key={cake.id} cake={cake} bakerySlug={cake.bakery?.slug || ""} bakeryName={cake.bakery?.name || ""} />
             ))}
           </div>
         ) : null}

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Button from "@/components/ui/Button";
+import Modal from "@/components/ui/Modal";
 import ImageUploader from "@/components/dashboard/ImageUploader";
 
 const DEFAULT_SIZES = [
@@ -26,6 +27,27 @@ export default function CakeForm({ categories, initial, cakeId }) {
     }
   );
   const [submitting, setSubmitting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleConfirmDelete() {
+    if (!cakeId) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/cakes/${cakeId}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success(`"${form.name}" deleted`);
+        router.push("/baker/dashboard/cakes");
+      } else {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || "Could not delete cake");
+      }
+    } catch (err) {
+      toast.error(err.message || "Could not delete cake");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   function update(key, value) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -180,9 +202,43 @@ export default function CakeForm({ categories, initial, cakeId }) {
         </label>
       </div>
 
-      <Button type="submit" size="lg" disabled={submitting} className="w-full sm:w-auto">
-        {submitting ? "Saving…" : cakeId ? "Save Changes" : "Add Cake"}
-      </Button>
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <Button type="submit" size="lg" disabled={submitting || deleting} className="w-full sm:w-auto">
+          {submitting ? "Saving…" : cakeId ? "Save Changes" : "Add Cake"}
+        </Button>
+
+        {cakeId && (
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            onClick={() => setShowDeleteModal(true)}
+            disabled={submitting || deleting}
+            className="w-full sm:w-auto text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 transition-colors"
+          >
+            <Trash2 size={16} /> Delete Cake
+          </Button>
+        )}
+      </div>
+
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => !deleting && setShowDeleteModal(false)}
+        tone="danger"
+        title="Delete Cake"
+        description={`Are you sure you want to delete "${form.name}"? This action cannot be undone and will permanently remove this cake from your storefront.`}
+        primaryAction={{
+          label: deleting ? "Deleting..." : "Delete Cake",
+          variant: "danger",
+          onClick: handleConfirmDelete,
+          loading: deleting,
+        }}
+        secondaryAction={{
+          label: "Cancel",
+          onClick: () => setShowDeleteModal(false),
+          disabled: deleting,
+        }}
+      />
     </form>
   );
 }

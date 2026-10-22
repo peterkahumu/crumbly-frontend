@@ -582,6 +582,21 @@ export async function getServerSideProps(ctx) {
 
     return { props: { a: analytics } };
   } catch (err) {
-    return { redirect: { destination: "/auth/login", permanent: false } };
+    const defaultPlatformAnalytics = {
+      window: { label: "30 days" },
+      totals: { orders: 0, revenue: 0, bakeries: 0, cakes: 0, customers: 0 },
+      comparison: { revenueDelta: null, ordersDelta: null, bakeriesDelta: null, cakesDelta: null },
+      trend: { points: [] },
+      topBakeries: [],
+      topCakes: [],
+      bakeryStatus: [],
+      cityDistribution: [],
+      channelBreakdown: [],
+      orderStatus: [],
+      recentOrders: [],
+      options: { cities: [], bakeries: [] },
+      appliedFilters: {},
+    };
+    return { props: { a: defaultPlatformAnalytics } };
   }
 }

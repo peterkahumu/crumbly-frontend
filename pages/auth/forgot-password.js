@@ -9,7 +9,6 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [resetUrl, setResetUrl] = useState("");
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -29,9 +28,6 @@ export default function ForgotPassword() {
       }
 
       setSuccess(true);
-      if (data.resetUrl) {
-        setResetUrl(data.resetUrl);
-      }
     } catch (err) {
       setError(err.message || "An unexpected error occurred. Please try again.");
     } finally {
@@ -64,24 +60,12 @@ export default function ForgotPassword() {
               <div className="flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-sm text-emerald-800 border border-emerald-200">
                 <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-emerald-600" />
                 <div>
-                  <p className="font-semibold">Reset link generated</p>
+                  <p className="font-semibold">Check your inbox</p>
                   <p className="mt-1 text-emerald-700">
-                    If an account is associated with <strong>{email}</strong>, a secure password reset link has been dispatched.
+                    If an account is associated with <strong>{email}</strong>, a secure password reset link has been sent to your email inbox. Please follow the instructions in the email.
                   </p>
                 </div>
               </div>
-
-              {resetUrl && (
-                <div className="rounded-xl border border-cream-200 bg-cream-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-cocoa-500">Quick Access Link (Demo/Dev Mode)</p>
-                  <a
-                    href={resetUrl}
-                    className="mt-2 inline-block break-all text-xs font-medium text-terracotta-600 underline hover:text-terracotta-700"
-                  >
-                    {resetUrl}
-                  </a>
-                </div>
-              )}
 
               <Button href="/auth/login" variant="outline" size="md" className="w-full">
                 Return to Sign In
